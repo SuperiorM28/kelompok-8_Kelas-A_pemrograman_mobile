@@ -2,6 +2,8 @@
 
 ## Anggota Kelompok
 
-1. Muh.Imam Fadhil Amsir - D121241061 - @SuperiorM28
-2.
-3.
+| No | Nama Lengkap | NIM |
+|:--:|:---|:---:|
+| 1 | Achmad Fachrul Hidayat | `D121241028` |
+| 2 | Imtyas Qanita Rahman | `D121241043` |
+| 3 | Muh.Imam Fadhil Amsir | `D121241061` |
