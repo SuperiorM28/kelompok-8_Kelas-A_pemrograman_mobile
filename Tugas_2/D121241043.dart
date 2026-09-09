@@ -1,12 +1,5 @@
 import 'dart:io';
 
-// ====================================================================
-// Tugas 2 - Pemrograman Mobile (Kelas A)
-// Nama  : Imtyas Qanita Rahman
-// NIM   : D121241043
-// ====================================================================
-
-// Function 1: Menampilkan daftar harga produk yang tersedia di toko
 void tampilkanMenu(Map<String, int> katalogHarga) {
   print('\n' + '=' * 45);
   print('           TOKO BUKU & ATK SMART           ');
@@ -25,7 +18,6 @@ void tampilkanMenu(Map<String, int> katalogHarga) {
   print('=' * 45);
 }
 
-// Function 2: Menghitung subtotal belanjaan
 int hitungSubtotal(Map<String, int> keranjang, Map<String, int> katalogHarga) {
   int subtotal = 0;
   keranjang.forEach((item, jumlah) {
@@ -35,27 +27,22 @@ int hitungSubtotal(Map<String, int> keranjang, Map<String, int> katalogHarga) {
   return subtotal;
 }
 
-// Function 3: Menentukan persentase diskon belanjaan berdasarkan subtotal
-// Menggunakan:
-// - If / else if / else
-// - Operator comparison (>=, <, >)
 double tentukanDiskon(int subtotal) {
   double persentaseDiskon = 0.0;
 
   if (subtotal >= 250000) {
-    persentaseDiskon = 0.20; // Diskon 20% jika belanja >= Rp 250.000
+    persentaseDiskon = 0.20; 
   } else if (subtotal >= 150000) {
-    persentaseDiskon = 0.15; // Diskon 15% jika belanja >= Rp 150.000
+    persentaseDiskon = 0.15; 
   } else if (subtotal >= 75000) {
-    persentaseDiskon = 0.05; // Diskon 5% jika belanja >= Rp 75.000
+    persentaseDiskon = 0.05; 
   } else {
-    persentaseDiskon = 0.0;  // Tidak ada diskon jika belanja < Rp 75.000
+    persentaseDiskon = 0.0; 
   }
 
   return persentaseDiskon;
 }
 
-// Function 4: Menampilkan rincian struk dan total akhir belanjaan
 void cetakRincianBelanja({
   required Map<String, int> keranjang,
   required Map<String, int> katalogHarga,
@@ -93,8 +80,6 @@ void cetakRincianBelanja({
 }
 
 void main() {
-  // [01] Menyimpan daftar harga
-  // Tipe data: Map<String, int> (Built-in Types)
   final Map<String, int> daftarHarga = {
     'Buku Tulis Hardcover': 22000,
     'Binder B5 Aesthetic': 45000,
@@ -105,11 +90,8 @@ void main() {
     'Correction Tape': 12000,
   };
 
-  // [02] Menyimpan daftar belanjaan (keranjang belanja)
-  // Tipe data: Map<String, int> (Built-in Types)
   final Map<String, int> daftarBelanjaan = {};
 
-  // Menampilkan katalog harga
   tampilkanMenu(daftarHarga);
 
   final List<String> listProduk = daftarHarga.keys.toList();
@@ -117,7 +99,6 @@ void main() {
   print('Pilih produk dengan mengetik nomor (1-${listProduk.length}).');
   print('Ketik 0 jika sudah selesai berbelanja.\n');
 
-  // Loop input belanjaan dari user
   while (true) {
     stdout.write('Masukkan nomor pilihan produk (0 untuk selesai): ');
     String? inputNo = stdin.readLineSync();
@@ -128,12 +109,10 @@ void main() {
       continue;
     }
 
-    // Menggunakan comparison operator (==)
     if (noPilihan == 0) {
       break;
     }
 
-    // Menggunakan comparison operator (< dan >)
     if (noPilihan < 1 || noPilihan > listProduk.length) {
       print('>> Nomor produk tidak ada di daftar! Silakan coba lagi.\n');
       continue;
@@ -145,33 +124,26 @@ void main() {
     String? inputQty = stdin.readLineSync();
     int? kuantitas = int.tryParse(inputQty?.trim() ?? '');
 
-    // Menggunakan comparison operator (<=)
     if (kuantitas == null || kuantitas <= 0) {
       print('>> Peringatan: Jumlah barang harus berupa angka positif!\n');
       continue;
     }
 
-    // Masukkan ke dalam map daftar belanjaan
     daftarBelanjaan[produkDipilih] =
         (daftarBelanjaan[produkDipilih] ?? 0) + kuantitas;
 
     print('>> Berhasil menambahkan $kuantitas x $produkDipilih ke keranjang.\n');
   }
 
-  // Jika tidak ada barang yang dibeli
   if (daftarBelanjaan.isEmpty) {
     print('\nTidak ada produk dalam keranjang belanja. Transaksi dibatalkan.');
     return;
   }
 
-  // Menghitung subtotal
   int subtotal = hitungSubtotal(daftarBelanjaan, daftarHarga);
 
-  // [03] Menentukan case diskon belanjaan (menggunakan function & if/else)
   double persentaseDiskon = tentukanDiskon(subtotal);
   double nominalDiskon = subtotal * persentaseDiskon;
-
-  // [04] Menghitung dan menampilkan total akhir belanjaan
   double totalAkhir = subtotal - nominalDiskon;
 
   cetakRincianBelanja(
