@@ -1,0 +1,28 @@
+name: air_quality_app
+description: Aplikasi Pengecek Kualitas Udara — REST API, FutureBuilder, dan Local Storage.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Kriteria 1 — REST API
+  http: ^1.2.2
+
+  # Kriteria 3 — Local Storage
+  shared_preferences: ^2.3.2
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
