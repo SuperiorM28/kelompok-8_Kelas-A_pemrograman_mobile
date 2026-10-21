@@ -4,11 +4,20 @@
 //   1. SharedPreferences — menyimpan "kota terakhir yang dicari".
 //   2. SQLite (sqflite)  — menyimpan riwayat pencarian.
 //
+// Catatan penting tentang platform:
+//   * Di Android/iOS/desktop, riwayat disimpan di SQLite.
+//   * Di web, `sqflite` tidak tersedia. Riwayat disimpan sebagai satu
+//     berkas JSON di SharedPreferences, sehingga tetap tersimpan dan
+//     aplikasi tidak error.
+//
 // Semua operasi dibungkus try/catch: kegagalan penyimpanan tidak pernah
 // membuat aplikasi Crash, dan pencarian tetap bisa berjalan.
 
 library;
 
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
@@ -40,8 +49,28 @@ class SearchHistory {
     );
   }
 
+  /// Dari berkas JSON (jalur web).
+  factory SearchHistory.fromJson(Map<String, dynamic> json) {
+    return SearchHistory(
+      id: json['id'] as int?,
+      city: (json['city'] as String?) ?? '-',
+      aqi: (json['aqi'] as int?) ?? 0,
+      category: (json['category'] as String?) ?? '-',
+      searchedAt: (json['searched_at'] as String?) ?? '-',
+    );
+  }
+
   /// Menuju baris tabel SQLite.
   Map<String, Object?> toRow() => {
+        'city': city,
+        'aqi': aqi,
+        'category': category,
+        'searched_at': searchedAt,
+      };
+
+  /// Menuju berkas JSON (jalur web).
+  Map<String, dynamic> toJson() => {
+        'id': id,
         'city': city,
         'aqi': aqi,
         'category': category,
@@ -55,6 +84,7 @@ class StorageService {
   static final StorageService instance = StorageService._();
 
   static const String _lastCityKey = 'last_city';
+  static const String _historyKey = 'search_history';
 
   Database? _db;
   SharedPreferences? _prefs;
@@ -62,10 +92,13 @@ class StorageService {
   bool _initialised = false;
 
   /// Menandakan inisialisasi sudah pernah dicoba.
-  ///
-  /// Bila SharedPreferences tidak tersedia (mis. di pengujian), aplikasi
-  /// tetap jalan tanpa penyimpanan — tidak ada Crash.
   bool get isInitialised => _initialised;
+
+  /// Benar bila aplikasi berjalan di browser.
+  ///
+  /// Di web `sqflite` tidak tersedia, sehingga riwayat disimpan sebagai
+  /// berkas JSON di SharedPreferences.
+  bool get _isWeb => kIsWeb;
 
   /// Menyiapkan SharedPreferences dan basis data.
   ///
@@ -77,16 +110,20 @@ class StorageService {
       _prefs = null; // lanjut tanpa preferensi
     }
 
-    try {
-      _db = await _openDatabase();
-    } catch (_) {
-      _db = null; // lanjut tanpa SQLite
+    if (!_isWeb) {
+      try {
+        _db = await _openDatabase();
+      } catch (_) {
+        _db = null; // lanjut tanpa SQLite
+      }
     }
 
     _initialised = true;
   }
 
   /// Membuka (atau membuat) basis data SQLite.
+  ///
+  /// Hanya dipanggil di luar web.
   Future<Database> _openDatabase() async {
     final dir = await getDatabasesPath();
     final path = p.join(dir, 'air_quality.db');
@@ -131,7 +168,7 @@ class StorageService {
   }
 
   // ---------------------------------------------------------------------
-  // 2. Riwayat pencarian — SQLite
+  // 2. Riwayat pencarian — SQLite di native, JSON di web
   // ---------------------------------------------------------------------
 
   /// Menyimpan satu pencarian ke riwayat.
@@ -140,6 +177,11 @@ class StorageService {
     required int aqi,
     required String category,
   }) async {
+    if (_isWeb) {
+      await _addHistoryWeb(city, aqi, category);
+      return;
+    }
+
     final db = _db;
     if (db == null) return;
 
@@ -147,7 +189,8 @@ class StorageService {
       // Riwayat dibatasi 20 entri terakhir agar tidak membengkak.
       await db.delete(
         'search_history',
-        where: 'id NOT IN (SELECT id FROM search_history ORDER BY id DESC LIMIT 19)',
+        where:
+            'id NOT IN (SELECT id FROM search_history ORDER BY id DESC LIMIT 19)',
       );
       await db.insert('search_history', {
         'city': city,
@@ -160,8 +203,46 @@ class StorageService {
     }
   }
 
+  /// Menyimpan riwayat di web sebagai berkas JSON.
+  Future<void> _addHistoryWeb(String city, int aqi, String category) async {
+    final rows = await getHistory();
+    final now = DateTime.now().toIso8601String();
+
+    // Gabungkan dengan entri lama, terbaru lebih dulu, maksimum 20.
+    final merged = <SearchHistory>[
+      SearchHistory(
+        id: 1,
+        city: city,
+        aqi: aqi,
+        category: category,
+        searchedAt: now,
+      ),
+      ...rows,
+    ].take(20).toList();
+
+    // Beri ulang nomor urut.
+    final numbered = <SearchHistory>[
+      for (var i = 0; i < merged.length; i++)
+        SearchHistory(
+          id: i + 1,
+          city: merged[i].city,
+          aqi: merged[i].aqi,
+          category: merged[i].category,
+          searchedAt: merged[i].searchedAt,
+        ),
+    ];
+
+    try {
+      await _prefs?.setString(_historyKey, jsonEncode(numbered));
+    } catch (_) {
+      // abaikan
+    }
+  }
+
   /// Membaca riwayat pencarian, terbaru lebih dulu.
   Future<List<SearchHistory>> getHistory({int limit = 20}) async {
+    if (_isWeb) return _getHistoryWeb(limit);
+
     final db = _db;
     if (db == null) return const [];
 
@@ -177,8 +258,38 @@ class StorageService {
     }
   }
 
+  /// Membaca riwayat dari berkas JSON di web.
+  Future<List<SearchHistory>> _getHistoryWeb(int limit) async {
+    try {
+      final raw = _prefs?.getString(_historyKey);
+      if (raw == null || raw.isEmpty) return const [];
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+
+      final items = decoded
+          .whereType<Map<String, dynamic>>()
+          .map(SearchHistory.fromJson)
+          .toList();
+
+      if (items.length <= limit) return items;
+      return items.sublist(0, limit);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Menghapus seluruh riwayat.
   Future<void> clearHistory() async {
+    if (_isWeb) {
+      try {
+        await _prefs?.remove(_historyKey);
+      } catch (_) {
+        // abaikan
+      }
+      return;
+    }
+
     final db = _db;
     if (db == null) return;
     try {

@@ -1,0 +1,63 @@
+# Deploy aplikasi web ke GitHub Pages.
+#
+# Alur kerja ini dijalankan otomatis setiap kali ada push ke branch `main`.
+# Berkas hasil build web akan diterbitkan ke branch `gh-pages`, yang
+# selanjutnya dilayani GitHub Pages.
+#
+# Cara mengaktifkan (sekali saja, di situs GitHub):
+#   1. Buka tab Settings pada repository.
+#   2. Pilih Pages di menu kiri.
+#   3. Di bagian "Build and deployment" > "Source", pilih "GitHub Actions".
+#
+# Setelah itu push berkas ini. Deploy pertama berjalan otomatis.
+
+name: Deploy ke GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pasang dependensi
+        run: flutter pub get
+
+      - name: Bangun untuk web
+        run: |
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/${{ github.ref_name }}/Tugas_3/Tugas_D121241028/"
+
+      - name: Unggah hasil build
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Terbitkan ke GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
